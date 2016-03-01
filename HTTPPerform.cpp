@@ -117,23 +117,37 @@ int createManifestFile(application* application)
 int calculateHash(application* app)
 {
 	FILE* fp;
-	fp = fopen(app->binaryPath.c_str(),"rb");
-	fseek(fp,0,SEEK_END);
-	int fileSize = ftell(fp);
-	fseek(fp,0,SEEK_SET);
+	int i, fileSize;
+    char stringData[65];
+	unsigned char obuf[SHA256_DIGEST_LENGTH];
+	
+	fp = fopen(app->binaryPath.c_str(), "r");
+	if (!fp) {
+	    return -1; /* fopen error */
+	}
+	
+	fseek(fp, 0, SEEK_END);
+	fileSize = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
 
 	unsigned char ibuf[fileSize];
 
-	unsigned char obuf[32];
-	fread(ibuf,fileSize,1,fp);
+	if (fileSize != fread(ibuf, 1, fileSize, fp)) {
+	    return -1; /* fread error */
+	}
 
-	SHA256(ibuf,fileSize,obuf);
-	int i;
-	char stringData[65];
-    for (i = 0; i < 32; i++) {
+	if (!SHA256(ibuf, fileSize, obuf)) {
+	    return -1; /* sha256 error */
+	}
+	
+    for (i = 0; i < SHA256_DIGEST_LENGTH; i++) {
         sprintf(stringData+(i*2), "%02x", obuf[i]);
-    }   
+    }
+    stringData[i*2] = '\0';
+    
     app->hashValue = string(stringData);
+    
+    fclose(fp);
     return 0;
 }
 
