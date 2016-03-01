@@ -1,15 +1,15 @@
 #include "headers/HTTPPerform.h"
 
 
-const string DOWNLOAD_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/";
-//const string DOWNLOAD_PATH = "/tmp/";
+//const string DOWNLOAD_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/";
+const string DOWNLOAD_PATH = "/tmp/";
 
-const string INSTALL_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall"; 
-const string MANIFEST_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall";
+//const string INSTALL_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall"; 
+//const string MANIFEST_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall";
 //const string INSTALL_PATH = "/Downloads/tmpInstall";
-//const string INSTALL_PATH = "/usr/bin/";
+const string INSTALL_PATH = "/usr/bin/";
 
-//const string MANIFEST_PATH = "/etc/appmand/";
+const string MANIFEST_PATH = "/etc/appmand/";
 
 
 void query_updateapps() {
