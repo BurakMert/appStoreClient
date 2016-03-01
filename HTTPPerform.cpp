@@ -1,13 +1,15 @@
 #include "headers/HTTPPerform.h"
 
 
-//const string DOWNLOAD_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/";
-const string DOWNLOAD_PATH = "/Downloads/";
-//const string INSTALL_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall"; 
-//const string MANIFEST_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall";
-const string INSTALL_PATH = "/Downloads/tmpInstall";
-const string MANIFEST_PATH = "/Downloads/tmpInstall";
+const string DOWNLOAD_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/";
+//const string DOWNLOAD_PATH = "/tmp/";
 
+const string INSTALL_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall"; 
+const string MANIFEST_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall";
+//const string INSTALL_PATH = "/Downloads/tmpInstall";
+//const string INSTALL_PATH = "/usr/bin/";
+
+//const string MANIFEST_PATH = "/etc/appmand/";
 
 
 void query_updateapps() {
@@ -154,7 +156,10 @@ int getdir (string dir, application* app)
        		getdir(appPath,app);      		
        	}
        	else if (string(dirp->d_name).compare(string(dirp->d_name).length() - ending.length(), ending.length(), ending) == 0)
-       		continue;
+       		{
+       			if( remove( (dir+"/"+dirp->d_name).c_str() ) != 0 )
+    				perror( "Error deleting .sign file" );  				
+   			}
        	else{        /*Set binary path and binary name*/		
        		app->binaryPath = dir + "/" +dirp->d_name;
        		app->binaryName =   dirp->d_name;     		      		
@@ -164,11 +169,12 @@ int getdir (string dir, application* app)
     return 0;
 }
 
-HTTPPerform::HTTPPerform(){
+HTTPPerform::HTTPPerform(string url){
 	curl_global_init(CURL_GLOBAL_DEFAULT);
 	curl = curl_easy_init();
 	errorFlag = 0;
 	errorMessage = "";	
+	this->baseUrl = url;
 }
 
 HTTPPerform::~HTTPPerform(){
@@ -254,7 +260,7 @@ int HTTPPerform::download(const string& url, application* app){
 }
 
 int HTTPPerform::install(const string& filePath, application* app){	
-	string command = "tar -zxf " + filePath +" -C  " + INSTALL_PATH;	
+	string command = "tar -zxf " + filePath +" -C  " + INSTALL_PATH + " --strip 1";	
 	int returnFlag = 0;
 	string dirPath = DOWNLOAD_PATH+"tmpInstall/";	
 	int retVal =  system(command.c_str());
@@ -267,7 +273,6 @@ int HTTPPerform::install(const string& filePath, application* app){
 	}
 
 applications* HTTPPerform::perform(ACTION action, int appId){	
-	string base = "http://10.155.10.206:8000/";
 	string url;
 	string download_url;
 	string binaryPath;
@@ -283,12 +288,12 @@ applications* HTTPPerform::perform(ACTION action, int appId){
 				this -> errorMessage = "Index page called with download request";
 			}
 			else { 
-				url = base + "application/"+to_string(appId)+"/";
+				url = this->baseUrl + "application/"+to_string(appId)+"/";
 				status = this->getContent(url,retVal);						
 				if (status == 1)
 				{
 					appList = this->parseString(retVal);
-					download_url = base + "application/"+to_string(appId)+"/download";							
+					download_url = this->baseUrl + "application/"+to_string(appId)+"/download";							
 					installationStatus = this->download(download_url, appList->apps);							
 					if(installationStatus != 1)
 						break;
@@ -303,9 +308,9 @@ applications* HTTPPerform::perform(ACTION action, int appId){
 			break;
 		case SHOW:
 			if(appId == 0)
-				url = base + "applications/";
+				url = this->baseUrl + "applications/";
 			else 
-				url = base + "application/"+to_string(appId)+"/";
+				url = this->baseUrl + "application/"+to_string(appId)+"/";
 			status=this->getContent(url,retVal);					
 			if (status == 1)
 				appList = this->parseString(retVal);
@@ -397,4 +402,13 @@ int HTTPPerform::getError(){
 }
 string HTTPPerform::getErrorMessage(){
 	return this->errorMessage;
+}
+
+void HTTPPerform::setUrl(const string& url)
+{
+	this->baseUrl = url;
+}
+string HTTPPerform::getUrl()
+{
+	return this->baseUrl;
 }
