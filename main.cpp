@@ -6,7 +6,7 @@
 
 
 int main(int argc, char** argv) {
-	HTTPPerform *performer = new HTTPPerform();
+	HTTPPerform *performer = new HTTPPerform("http://10.155.10.206:8000/");
 	applications* appList;	
 	try {			
 		appList = performer->perform(DOWNLOAD,15);	
