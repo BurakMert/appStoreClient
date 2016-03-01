@@ -43,18 +43,22 @@ struct applications {
 class HTTPPerform {
 
 public:
-	HTTPPerform();
+	HTTPPerform(string);
 	~HTTPPerform();
 	applications* perform(ACTION, int);
 	int getError();
+	string getUrl();
 	string getErrorMessage();
+
 private:
-	void* curl;	
-	int errorFlag;
 	string errorMessage;
+	string baseUrl;
+	applications* parseString(string);
+	void* curl;	
+	int errorFlag;	
+	void setUrl(const string&);
 	int install(const string&, application*);
 	int download(const string&, application*);
-	int getContent(string,string&);
-	applications* parseString(string);
+	int getContent(string,string&);	
 };
 
