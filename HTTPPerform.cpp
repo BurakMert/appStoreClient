@@ -1,15 +1,15 @@
 #include "headers/HTTPPerform.h"
 
 
-const string DOWNLOAD_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/";
-//const string DOWNLOAD_PATH = "/tmp/";
+//const string DOWNLOAD_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpDownload/";
+const string DOWNLOAD_PATH = "/root/Appstore/Downloads/";
 
-const string INSTALL_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall"; 
-const string MANIFEST_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall";
+//const string INSTALL_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall/"; 
+//const string MANIFEST_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpManifest/";
 //const string INSTALL_PATH = "/Downloads/tmpInstall";
-//const string INSTALL_PATH = "/usr/bin/";
+const string INSTALL_PATH = "/usr/bin/";
 
-//const string MANIFEST_PATH = "/etc/appmand/";
+const string MANIFEST_PATH = "/etc/appmand/";
 
 
 void query_updateapps() {
@@ -88,7 +88,7 @@ size_t function_pt(void *contents, size_t size, size_t nmemb, void *stream){
 
 int createManifestFile(application* application)
 {
-	string manifest_dir = MANIFEST_PATH + "/" + application->name + ".mf";
+	string manifest_dir = MANIFEST_PATH + application->name + ".mf";
 	cJSON *root;
 	root = cJSON_CreateObject();
 	cJSON_AddItemToObject(root, "id", cJSON_CreateNumber(application->id + 100));
@@ -151,7 +151,8 @@ int getdir (string dir, application* app)
 {
     DIR *dp;
     struct dirent *dirp;
-    string ending = ".sign";        
+    string ending = ".sign";
+    string manifest_ending= ".mf";        
     if((dp  = opendir(dir.c_str())) == NULL) {
         cout << "Error(" << errno << ") opening " << dir << endl;
         return errno;
@@ -161,7 +162,8 @@ int getdir (string dir, application* app)
     	if (strcmp(dirp->d_name,".") == 0  || strcmp(dirp -> d_name,"..") == 0 )
     		continue;
     	if (dirp->d_type == DT_DIR){    		
-       		string appPath = dir + dirp->d_name;       		
+       		string appPath = INSTALL_PATH + "/" + dirp->d_name; 
+       		cout << "Calling getdir with : " << appPath << endl;      		
        		getdir(appPath,app);      		
        	}
        	else if (string(dirp->d_name).compare(string(dirp->d_name).length() - ending.length(), ending.length(), ending) == 0)
@@ -169,8 +171,13 @@ int getdir (string dir, application* app)
        			if( remove( (dir+"/"+dirp->d_name).c_str() ) != 0 )
     				perror( "Error deleting .sign file" );  				
    			}
+   			else if (string(dirp->d_name).compare(string(dirp->d_name).length() - manifest_ending.length(), manifest_ending.length(), manifest_ending) == 0)
+       		{
+       			continue;  // manifest file, continue				
+   			}
        	else{        /*Set binary path and binary name*/		
-       		app->binaryPath = dir + "/" +dirp->d_name;
+       		app->binaryPath = dir + dirp->d_name;
+       		cout << "Binary Path is :" << app->binaryPath << endl;
        		app->binaryName =   dirp->d_name;     		      		
        	}
     }
@@ -232,38 +239,46 @@ int HTTPPerform::download(const string& url, application* app){
 	app->error = 1;
 	app->isDownloaded = 0;
 	app->isInstalled = 0;
-	if (curl){		
-		curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-		string filePath = DOWNLOAD_PATH +  "tmp.tar.gz";		
-		fp = fopen(filePath.c_str(),"w+");
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);				
-		try {
-			res = curl_easy_perform(curl);
+	string filePath = DOWNLOAD_PATH +  "tmp.tar.gz";
+	fp = fopen(filePath.c_str(),"w+");
+	if (fp == NULL)
+	{
+		app->error;
+		app->errorCode = "Download path does not exist";	
+	}	
+	else
+	{
+		if (curl){		
+			curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);			
+			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+			curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);				
+			try {
+				res = curl_easy_perform(curl);
+			}
+			catch(exception &e){
+				cout << "Exception " << e.what() << endl;
+			}		
+			
+			if(res ==CURLE_OK) 
+			{			
+				curl_easy_cleanup(curl);
+				fclose(fp);
+				installed = install(filePath, app);			
+				if(installed != 0){				
+					app->errorCode = "Installation failed\n";				
+				}
+				else { // Installation Completed
+					app-> isInstalled = 1;
+					app-> isDownloaded = 1; 
+					app-> error = 0;			
+					query_updateapps();				
+					string command = "rm -r " +filePath;				
+					system(command.c_str());				
+					returnFlag = 1;
+				}
+			}		
 		}
-		catch(exception &e){
-			cout << "Exception " << e.what() << endl;
-		}		
-		
-		if(res ==CURLE_OK) 
-		{			
-			curl_easy_cleanup(curl);
-			fclose(fp);
-			installed = install(filePath, app);			
-			if(installed != 0){				
-				app->errorCode = "Installation failed\n";				
-			}
-			else { // Installation Completed
-				app-> isInstalled = 1;
-				app-> isDownloaded = 1; 
-				app-> error = 0;			
-				query_updateapps();				
-				string command = "rm -r " +filePath;				
-				system(command.c_str());				
-				returnFlag = 1;
-			}
-		}		
 	}
 	return returnFlag;
 }
@@ -271,7 +286,7 @@ int HTTPPerform::download(const string& url, application* app){
 int HTTPPerform::install(const string& filePath, application* app){	
 	string command = "tar -zxf " + filePath +" -C  " + INSTALL_PATH + " --strip 1";	
 	int returnFlag = 0;
-	string dirPath = DOWNLOAD_PATH+"tmpInstall/";	
+	string dirPath = INSTALL_PATH;	
 	int retVal =  system(command.c_str());
 	if (retVal!= 0)
 		returnFlag = -1;
