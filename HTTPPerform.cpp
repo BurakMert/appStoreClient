@@ -1,16 +1,22 @@
 #include "headers/HTTPPerform.h"
 
+const string DOWNLOAD_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpDownload/";
+//const string DOWNLOAD_PATH = "/root/Appstore/tmp/Downloads/";
 
-//const string DOWNLOAD_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpDownload/";
-const string DOWNLOAD_PATH = "/root/Appstore/Downloads/";
+const string INSTALL_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall/"; 
+const string MANIFEST_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpManifest/";
+//const string INSTALL_PATH = "/root/Appstore/tmp/Install/";
+//const string INSTALL_PATH = "/usr/bin/";
 
-//const string INSTALL_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpInstall/"; 
-//const string MANIFEST_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/tmpManifest/";
-//const string INSTALL_PATH = "/Downloads/tmpInstall";
-const string INSTALL_PATH = "/usr/bin/";
-
-const string MANIFEST_PATH = "/etc/appmand/";
-
+//const string MANIFEST_PATH = "/etc/appmand/";
+const string MOVE_PATH = "/home/burakmert/Projects/MMIS/DownloaderApp/Install/";
+//const string MOVE_PATH = "/usr/bin/";
+void clearDirectories()
+{
+	string rmcommand = "rm -rf ";
+	system((rmcommand + INSTALL_PATH).c_str()); // clear tmpInstall	
+	system((rmcommand + DOWNLOAD_PATH).c_str()); //clear tmpDownload
+}
 
 void query_updateapps() {
     DBusMessage* msg;
@@ -117,9 +123,11 @@ int createManifestFile(application* application)
 int calculateHash(application* app)
 {
 	FILE* fp;
+	cout << "Opening file :" << app->binaryPath<<endl;
 	fp = fopen(app->binaryPath.c_str(),"rb");
 	if(fp == NULL)
 	{
+		cout << "Fp is null?" << endl;
 		app->error = 1;
 		app->errorCode = "Could not read binary file";
 		return -1;
@@ -289,10 +297,24 @@ int HTTPPerform::install(const string& filePath, application* app){
 	string dirPath = INSTALL_PATH;	
 	int retVal =  system(command.c_str());
 	if (retVal!= 0)
-		returnFlag = -1;
+	{
+		returnFlag = -1;		
+	}
 	int dirVal = getdir(dirPath,app);
 	if (dirVal != 0 )
-		returnFlag = -1;
+	{
+		returnFlag = -1;		
+	}
+	string moveCommand = "mv " +app->binaryPath+ " " + MOVE_PATH;
+	cout << "Executing :" << moveCommand << endl;	
+	if(system(moveCommand.c_str())!=0)
+		returnFlag = -1; // error while moving application binary to /usr/bin
+	else
+	{
+		app->binaryPath=MOVE_PATH+app->binaryName;
+		cout << "Binary Path changed to :" << app->binaryPath<<endl;
+	}
+	
 	return returnFlag;
 	}
 
@@ -322,7 +344,11 @@ applications* HTTPPerform::perform(ACTION action, int appId){
 					download_url = this->baseUrl + "application/"+to_string(appId)+"/download";							
 					installationStatus = this->download(download_url, appList->apps);							
 					if(installationStatus != 1)
+					{
+						cout << "Installation status is not 1 "<< endl;
+						clearDirectories();
 						break;
+					}
 					hashCalculated = calculateHash(appList->apps);
 					if(hashCalculated == -1) {
 						this->errorFlag = 1;
